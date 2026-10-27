@@ -1,0 +1,12 @@
+.venv/
+.deps/
+.tmp/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+data/
+downloads/
+certs/
+*.db
+*.db-wal
+*.db-shm
