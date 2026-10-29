@@ -56,7 +56,7 @@ def list_messages(client):
     return [(int(a), uid.decode('ascii'), sizes[int(a)]) for a, uid in (line.split() for line in client.uidl()[1])]
 
 
-def fetch_messages(client, output, username):
+def fetch_messages(client, output, username, spam_filter=None, on_classified=None):
     # Encode account as UTF-8 hex rather than trusting it as a filesystem path.
     target = Path(output) / username.lower().encode('utf-8').hex()
     target.mkdir(parents=True, exist_ok=True)
@@ -65,7 +65,8 @@ def fetch_messages(client, output, username):
         if not re.fullmatch(r'[A-Za-z0-9_-]{1,70}', uid):
             raise ValueError('POP3 UID contains unsafe characters')
         path = target / (uid + '.eml')
-        if path.exists():
+        spam_path = target / 'spam' / (uid + '.eml')
+        if path.exists() or spam_path.exists():
             continue
         _, lines, _ = client.retr(number)
         raw = b'\r\n'.join(lines) + b'\r\n'
@@ -73,6 +74,20 @@ def fetch_messages(client, output, username):
         if len(raw) != size:
             raise ValueError(f'邮件 {uid} 长度与服务器报告不一致')
         path.write_bytes(raw)
+        if spam_filter is not None:
+            label, error = 'unclassified', None
+            try:
+                label = spam_filter.classify(raw)
+                if label not in ('ham', 'spam'):
+                    raise ValueError('模型返回未知标签')
+                if label == 'spam':
+                    spam_path.parent.mkdir(exist_ok=True)
+                    path.rename(spam_path)
+                    path = spam_path
+            except Exception as exc:
+                label, error = 'unclassified', str(exc)
+            if on_classified is not None:
+                on_classified(path, label, error)
         result.append(path)
     return result
 

@@ -37,7 +37,13 @@ def main():
         p = sub.add_parser(name, help='列出邮件' if name == 'list' else '下载邮件')
         p.add_argument('--host', default='127.0.0.1'); p.add_argument('--port', type=int, default=1995)
         p.add_argument('--user', required=True); p.add_argument('--plain', action='store_true'); p.add_argument('--ca')
-        if name == 'fetch': p.add_argument('--out', default='downloads')
+        if name == 'fetch':
+            p.add_argument('--out', default='downloads')
+            p.add_argument('--spam-model', help='启用过滤，指定本地可信模型文件')
+            p.add_argument('--color', choices=('auto', 'always', 'never'), default='auto')
+    spam_list = sub.add_parser('spam-list', help='列出本地垃圾箱')
+    spam_list.add_argument('--user', required=True)
+    spam_list.add_argument('--out', default='downloads')
     view = sub.add_parser('view', help='查看本地邮件并可提取附件')
     view.add_argument('path'); view.add_argument('--attachments-dir')
     args = parser.parse_args()
@@ -74,14 +80,33 @@ def main():
         html = Path(args.html_file).read_text(encoding='utf-8') if args.html_file else None
         send(args.host, args.port, args.user, read_password('密码: '), args.to, args.subject, args.text, html, args.attach, not args.plain, args.ca)
         print('邮件已投递到服务器')
+    elif args.command == 'spam-list':
+        folder = Path(args.out) / args.user.lower().encode('utf-8').hex() / 'spam'
+        for path in sorted(folder.glob('*.eml')):
+            print('[SPAM]', path)
     elif args.command in ('list', 'fetch'):
+        spam_filter = None
+        if args.command == 'fetch' and args.spam_model:
+            try:
+                from .spam import SpamFilter
+                spam_filter = SpamFilter.load(args.spam_model)
+            except Exception as exc:
+                print(f'警告：过滤不可用，本次新邮件不分类，仍保存原文：{exc}', file=sys.stderr)
         pop = connect_pop(args.host, args.port, args.user, read_password('密码: '), not args.plain, args.ca)
         try:
             if args.command == 'list':
                 for number, uid, size in list_messages(pop): print(f'{number}\t{uid}\t{size} 字节')
             else:
-                paths = fetch_messages(pop, args.out, args.user)
-                for path in paths: print(path)
+                def report(path, label, error):
+                    text = f'[{label.upper()}] {path}'
+                    if label == 'spam' and (args.color == 'always' or (args.color == 'auto' and sys.stdout.isatty())):
+                        text = '\033[31m' + text + '\033[0m'
+                    print(text)
+                    if error: print(f'警告：邮件未分类：{error}', file=sys.stderr)
+                paths = fetch_messages(pop, args.out, args.user, spam_filter, report)
+                if spam_filter is None:
+                    for path in paths:
+                        print(('[UNCLASSIFIED] ' if args.spam_model else '') + str(path))
                 print(f'下载 {len(paths)} 封新邮件')
             pop.quit()
         except BaseException:
