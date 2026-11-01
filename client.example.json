@@ -1,0 +1,8 @@
+{
+  "send": {"user": "alice@example.test", "ca": "certs/server-cert.pem"},
+  "list": {"user": "bob@example.test", "ca": "certs/server-cert.pem"},
+  "fetch": {"user": "bob@example.test", "ca": "certs/server-cert.pem", "spam_model": "models/spam/model.joblib"},
+  "local-list": {"user": "bob@example.test", "out": "downloads"},
+  "spam-list": {"user": "bob@example.test", "out": "downloads"},
+  "view": {"user": "bob@example.test", "out": "downloads"}
+}
