@@ -13,3 +13,4 @@ certs/
 *.db
 *.db-wal
 *.db-shm
+web-downloads/

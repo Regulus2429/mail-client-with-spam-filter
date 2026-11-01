@@ -1,0 +1,5 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>课程邮箱</title><link rel="stylesheet" href="{{ url_for('static', filename='mail.css') }}"></head>
+<body><header><a class="brand" href="{{ url_for('inbox') }}">课程邮箱 <small>Web 邮件管理</small></a>{% if account %}<span>{{ account.user }}</span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button class="secondary">退出登录</button></form>{% endif %}</header>
+<main>{% if account %}<nav><a href="{{ url_for('inbox') }}">收件箱</a><a href="{{ url_for('inbox', folder='spam') }}">垃圾箱</a><a href="{{ url_for('compose') }}">写邮件</a><form method="post" action="{{ url_for('fetch') }}"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button>收取邮件</button></form></nav><p class="hint">{{ filter_status }}</p>{% endif %}
+{% for text in get_flashed_messages() %}<p class="notice" role="status">{{ text }}</p>{% endfor %}{% block content %}{% endblock %}</main><footer>课程实验邮件系统 · 仅支持系统内已注册账号 · 登录有效期 30 分钟</footer></body></html>
